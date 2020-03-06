@@ -1,0 +1,7 @@
+*.pyc
+*.swp
+*.swo
+*DS_Store
+.idea
+mcts_results/mcts_evolutions/*
+conveyor_belt/mcts_evolutions

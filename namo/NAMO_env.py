@@ -8,27 +8,50 @@ import socket
 from NAMO_problem import NAMO_problem
 
 sys.path.append('../mover_library/')
-from samplers import *
-from utils import *
-from operator_utils.grasp_utils import solveTwoArmIKs, compute_two_arm_grasp
+from mover_library.samplers import *
+from mover_library.utils import *
+from mover_library.operator_utils.grasp_utils import solveTwoArmIKs, compute_two_arm_grasp
 from data_preprocess.preprocessing_utils import compute_fetch_vec
 from TreeNode import *
 from data_load_utils import convert_collision_vec_to_one_hot
-from motion_planner import collision_fn, base_extend_fn, base_sample_fn, base_distance_fn, smooth_path, rrt_connect
+from mover_library.motion_planner import collision_fn, base_extend_fn, base_sample_fn, base_distance_fn, smooth_path, rrt_connect
 import random
+
 
 OBJECT_ORIGINAL_COLOR = (0, 0, 0)
 COLLIDING_OBJ_COLOR = (0, 1, 1)
 TARGET_OBJ_COLOR = (1, 0, 0)
 
+def get_motion_plan(robot, env, goal):
+    d_fn = base_distance_fn(robot, x_extents=2.51, y_extents=2.51)
+    s_fn = base_sample_fn(robot, x_extents=2.51, y_extents=2.51)
+    e_fn = base_extend_fn(robot)
+    c_fn = collision_fn(env, robot)
+    q_init = robot.GetActiveDOFValues()
+
+    n_iterations = [20, 50, 100, 500, 1000]
+    print "Path planning..."
+    stime = time.time()
+    for n_iter in n_iterations:
+        path = rrt_connect(q_init, goal, d_fn, s_fn, e_fn, c_fn, iterations=n_iter)
+        if path is not None:
+            path = smooth_path(path, e_fn, c_fn)
+            print "Path Found, took %.2f" % (time.time() - stime)
+            return path, "HasSolution"
+
+    print "Path not found, took %.2f" % (time.time() - stime)
+    return None, 'NoPath'
+
 
 class NAMO:
     def __init__(self, manual_pinst=None, is_preprocess=False):
         self.manual_pinst = manual_pinst
-        if not is_preprocess:
-            manual_pinst = self.get_p_inst()
+        manual_pinst = '0.pkl'
         # print manual_pinst
-        self.problem = self.create_problem_and_env(manual_pinst)
+        self.create_problem_and_env(manual_pinst)
+        self.robot = self.env.GetRobots()[0]
+        self.regions = {'entire_region': self.problem['all_region']}
+
 
         self.n_kinematic_trial_limit = 100
         self.rrt_time_limit = np.inf
@@ -45,9 +68,13 @@ class NAMO:
         objs = self.objects
 
         assert len(robot.GetGrabbed()) == 0, "Robot must not hold anything to check obj collisions"
+        #except:
+        #    import pdb;pdb.set_trace()
 
         if len(path) > 1000:
             path_reduced = path[0:len(path) - 1:2]  # halves the path length
+        else:
+            path_reduced= path
 
         with robot:
             set_config(robot, FOLDED_LEFT_ARM, leftarm_manip.GetArmIndices())
@@ -177,6 +204,28 @@ class NAMO:
         print "Path not found, took %.2f"%(time.time()-stime)
         return None, 'NoPath'
 
+
+    def sample_feasible_place(self, place_pi, fc, misc):
+        robot = self.robot
+        env = self.env
+        robot_region = self.robot_region
+        obj = self.env.GetKinBody(self.curr_obj_name)
+
+        before = get_robot_xytheta(robot).squeeze()
+        for n_trial in range(self.n_kinematic_trial_limit):
+            stime = time.time()
+            place_robot_pose = place_pi.predict(fc, misc)[0, :]
+            if self.is_feasible_base_pose(place_robot_pose):
+                print "Checking place path existence"
+                if self.exists_base_path(before, place_robot_pose):
+                    set_robot_config(before, robot)
+                    return place_robot_pose, True
+                else:
+                    break
+        set_robot_config(before, robot)
+        return place_robot_pose, False
+
+
     def exists_base_path(self, c0, goal):
         time_limit = self.rrt_time_limit
         robot = self.robot
@@ -190,8 +239,7 @@ class NAMO:
 
         stime = time.time()
         for node_lim in [10000]:
-            path, tpath, status = get_motion_plan(robot,
-                                                  goal, env, n_node_lim=node_lim, t_lim=np.inf)
+            path,  status = self.get_motion_plan(goal)#, env, n_node_lim=node_lim, t_lim=np.inf)
             print "RRT time so far", time.time() - stime, status
             if status == 'HasSolution': break
             if time.time() - stime > time_limit:
@@ -214,9 +262,10 @@ class NAMO:
 
         place_robot_pose = action
         set_robot_config(place_robot_pose.squeeze(), robot)
-        if check_collision_except(robot, obj, env):
-            return False
-        place_obj(obj, robot, FOLDED_LEFT_ARM, leftarm_manip, rightarm_manip)
+        #if check_collision_except(robot, obj, env):
+        #    return False
+        place_obj(obj, robot, leftarm_manip, rightarm_manip)
+
         return True
 
     def visualize_placements(self, pi, cvec, misc):

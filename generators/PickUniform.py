@@ -2,14 +2,14 @@ import sys
 import numpy as np
 
 sys.path.append('../mover_library/')
-from samplers import sample_pick, sample_grasp_parameters, sample_ir, sample_ir_multiple_regions
+from mover_library.samplers import sample_pick, sample_grasp_parameters, sample_ir, sample_ir_multiple_regions
 
-from utils import compute_occ_vec, set_robot_config, remove_drawn_configs, \
+from mover_library.utils import compute_occ_vec, set_robot_config, remove_drawn_configs, \
     draw_configs, clean_pose_data, draw_robot_at_conf, \
     pick_obj, place_obj, check_collision_except
 
 sys.path.append('../mover_library/')
-from operator_utils.grasp_utils import solveTwoArmIKs, compute_two_arm_grasp
+from mover_library.operator_utils.grasp_utils import solveTwoArmIKs, compute_two_arm_grasp
 
 
 #def check_collision_except_obj(obj, robot, env):

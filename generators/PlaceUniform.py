@@ -3,8 +3,8 @@ import numpy as np
 import pickle
 
 sys.path.append('../mover_library/')
-from samplers import *
-from utils import *
+from mover_library.samplers import *
+from mover_library.utils import *
 
 
 def generate_rand(min, max):

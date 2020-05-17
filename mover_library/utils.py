@@ -5,6 +5,7 @@ from manipulation.constants import PARALLEL_LEFT_ARM, REST_LEFT_ARM, HOLDING_LEF
 
 from manipulation.primitives.utils import mirror_arm_config
 from openravepy import *
+import openravepy
 import numpy as np
 import math
 import time
@@ -62,6 +63,8 @@ def set_obj_xytheta(xytheta, obj):
 
 def set_active_dof_conf(conf, robot):
     robot.SetActiveDOFValues(conf.squeeze())
+
+
 
 
 def draw_robot_at_conf(conf, transparency, name, robot, env, color=None):
@@ -169,6 +172,7 @@ def determine_best_weight_path_for_given_n_data(parent_dir, n_data):
     return weight_path_list[np.argmin(test_mse_list)]
 
 
+"""
 def check_collision_except(exception_body, env):
     assert exception_body != env.GetRobots()[0], 'Collision exception cannot be the robot'
 
@@ -178,10 +182,20 @@ def check_collision_except(exception_body, env):
     # todo optimize this later
     return np.any([env.CheckCollision(env.GetRobots()[0], body) for body in env.GetBodies() if body != exception_body])
     #return col
+"""
+
+def check_collision_except(body1, exception_body, env):
+    return np.any([env.CheckCollision(body1, body) for body in env.GetBodies() if body != exception_body])
 
 
 
-def set_robot_config(base_pose, robot):
+
+
+def set_robot_config(base_pose, robot=None):
+    if robot is None:
+        env = openravepy.RaveGetEnvironments()[0]
+        robot = env.GetRobot('pr2')
+
     base_pose = np.array(base_pose)
     base_pose = clean_pose_data(base_pose.astype('float'))
 

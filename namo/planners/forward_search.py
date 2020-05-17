@@ -96,7 +96,8 @@ def forward_dfs_search(problem, pick_pi, place_pi, max_exp=np.inf, \
         saver.Restore()
         problem.curr_obj_name = current_collisions[0]
 
-        fc, misc = problem.get_state_features()
+        #fc, misc = problem.get_state_features()
+        fc, misc = None, None
 
         # get progress on the problem
         n_objs_moved = len(initial_collisions) - len(current_collisions)
@@ -119,6 +120,7 @@ def forward_dfs_search(problem, pick_pi, place_pi, max_exp=np.inf, \
             print "Sampling pick..."
             for _ in range(n_actions_per_state):
                 action, is_action_success = problem.sample_feasible_pick(pick_pi, fc, misc)
+                node.object = problem.curr_obj_name
                 if is_action_success:
                     problem.apply_pick_action(action, is_unif_policy)
                     new_state, new_state_pval = create_state(env, current_collisions)
@@ -132,14 +134,31 @@ def forward_dfs_search(problem, pick_pi, place_pi, max_exp=np.inf, \
             grab_obj(robot, env.GetKinBody(problem.curr_obj_name))  # restoring breaks contacts
             for _ in range(n_actions_per_state):
                 action, is_action_success = problem.sample_feasible_place(place_pi, fc, misc)
+                node.object = problem.curr_obj_name
+
                 if is_action_success:
                     problem.apply_place_action(action)
+                    if len(env.GetRobots()[0].GetGrabbed()) > 0:
+                        # This was a weird bug that had to do with how if I pick-and-place an object
+                        # then it screws the collision checker and says that the robot is in collision when it is not
+                        import pdb;
+                        pdb.set_trace()
                     current_collisions = problem.compute_obj_collisions()
                     is_solution = len(current_collisions) == 0
                     if is_solution:
                         print "Success!"
                         time_used = time.time() - initial_time
                         rwd_time_list.append([time_used, max_n_objs_moved, len(current_collisions)])
+                        plan = [action]
+                        states = [node.object]
+                        curr_node = node.parent
+                        while curr_node is not None:
+                            curr_node = curr_node.parent
+                            if curr_node is not None:
+                                plan.append(curr_node.action)
+                                states.append(curr_node.object)
+                        pickle.dump([states,plan], open('plan.pkl','wb'))
+                        import pdb;pdb.set_trace()
                         return nodes, rwd_time_list
                     new_state, new_state_pval = create_state(env, current_collisions)
                     queue.push(new_state_pval, (new_state, action, node))  # push subsequent states

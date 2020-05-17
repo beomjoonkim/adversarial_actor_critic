@@ -7,7 +7,8 @@ from sklearn.preprocessing import StandardScaler
 #from preprocessing_utils import aggregate_data
 
 sys.path.append('../mover_library/')
-from utils import clean_pose_data
+sys.path.append('../')
+from mover_library.utils import clean_pose_data
 import time
 
 def process_traj( traj_data ):

@@ -43,12 +43,14 @@ import socket
 import sys
 import os
 
-
 sys.path.append('../mover_library/')
 from samplers import *
 from utils import *
 from operator_utils.grasp_utils import solveTwoArmIKs, compute_two_arm_grasp
+from motion_planner import collision_fn, base_extend_fn, base_sample_fn, base_distance_fn, smooth_path, rrt_connect
+
 import pickle
+
 # obj definitions
 min_height = 0.4
 max_height = 1
@@ -60,6 +62,29 @@ min_length = 0.2
 max_length = 0.6
 
 SLEEPTIME = 0.05
+
+import time
+
+
+def get_motion_plan(robot, env, goal):
+    d_fn = base_distance_fn(robot, x_extents=2.51, y_extents=2.51)
+    s_fn = base_sample_fn(robot, x_extents=2.51, y_extents=2.51)
+    e_fn = base_extend_fn(robot)
+    c_fn = collision_fn(env, robot)
+    q_init = robot.GetActiveDOFValues()
+
+    n_iterations = [20, 50, 100, 500, 1000]
+    print "Path planning..."
+    stime = time.time()
+    for n_iter in n_iterations:
+        path = rrt_connect(q_init, goal, d_fn, s_fn, e_fn, c_fn, iterations=n_iter)
+        if path is not None:
+            path = smooth_path(path, e_fn, c_fn)
+            print "Path Found, took %.2f" % (time.time() - stime)
+            return path, "HasSolution"
+
+    print "Path not found, took %.2f" % (time.time() - stime)
+    return None, 'NoPath'
 
 
 def compute_fetch_vec(key_configs, fetch_path, robot, env):
@@ -123,7 +148,6 @@ def place_obj(obj, robot, leftarm_manip, rightarm_manip):
                rightarm_manip.GetArmIndices())
 
 
-"""
 def compute_obj_collisions(env,robot,path,objs):
   obj_names = []
   # set robot to its initial configuration
@@ -134,7 +158,6 @@ def compute_obj_collisions(env,robot,path,objs):
         if env.CheckCollision(robot,obj) and not (obj.GetName() in obj_names):
           obj_names.append(obj.GetName())
   return obj_names
-"""
 
 
 def create_objects(env, obj_region, table_region):
@@ -169,7 +192,7 @@ def load_objects(env, obj_shapes, obj_poses, color):
     i = 0
     nobj = len(obj_shapes.keys())
     for obj_name in obj_shapes.keys():
-        xytheta = obj_poses[obj_name]
+        xytheta = obj_poses[obj_name].squeeze()
         width, length, height = obj_shapes[obj_name]
         quat = quat_from_z_rot(xytheta[-1])
 
@@ -214,8 +237,8 @@ def sample_pick(obj, robot, env, region, n_trials=5):
         # check reachability
         robot.SetTransform(original_trans)
         # print 'pick motion planning...'
-        path, tpath, status = get_motion_plan(robot, base_pose, env, n_node_lim=np.inf, maxiter=20)
-        print 'done', status, tpath
+        path, status = get_motion_plan(robot, env, base_pose)
+        print 'done', status
         if status == 'HasSolution':
             # found feasible pick parameter
             return base_pose, [theta, height_portion, depth_portion], g_config, path
@@ -536,7 +559,7 @@ def NAMO_problem(env, pfile):
             collided_obj_names = problem_config['collided_obj_names']
         except KeyError:
             collided_obj_names = problem_config['collided_objs']
-    fdir=os.path.dirname(os.path.abspath(__file__))
+    fdir = os.path.dirname(os.path.abspath(__file__))
     env.Load(fdir + '/namo_env.xml')
     robot = env.GetRobots()[0]
     set_point(env.GetKinBody('shelf1'), [1, -2.33205483, 0.010004])

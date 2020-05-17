@@ -4,10 +4,10 @@ sys.path.append('../mover_library/')
 from mcts_tree_node import StateSaverTreeNode
 from manipulation.primitives.savers import DynamicEnvironmentStateSaver
 
-from samplers import *
-from utils import *
+from mover_library.samplers import *
+from mover_library.utils import *
 from mcts_utils import make_action_hashable, is_action_hashable
-from utils import draw_robot_at_conf, remove_drawn_configs
+from mover_library.utils import draw_robot_at_conf, remove_drawn_configs
 import socket
 
 if socket.gethostname() == 'dell-XPS-15-9560':

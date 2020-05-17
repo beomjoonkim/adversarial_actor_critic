@@ -33,12 +33,13 @@ class NAMO(TwoArmProblemEnvironment):
     def __init__(self, problem_idx):
         TwoArmProblemEnvironment.__init__(self)
 
-        self.manual_pinst = self.get_p_inst(problem_idx)
-
+        #self.manual_pinst = self.get_p_inst(problem_idx)
+        self.manual_pinst = '0.pkl'
+        self.problem = None
         while self.problem is None:
             self.problem = NAMO_problem(self.env, self.manual_pinst)
         self.robot = self.env.GetRobots()[0]
-
+        self.regions = {'entire_region': self.problem['all_region']}
 
         self.objects = self.problem['objects']
         for obj in self.objects:
@@ -110,7 +111,7 @@ class NAMO(TwoArmProblemEnvironment):
         return obj_names
 
     def get_p_inst(self, problem_idx):
-        if socket.gethostname() == 'dell-XPS-15-9560':
+        if socket.gethostname() == 'dell-XPS-15-9560' or socket.gethostname() == 'lab':
             self.problem_dir = '../AdvActorCriticNAMOResults/problems/'
             n_probs_threshold = 900
         else:

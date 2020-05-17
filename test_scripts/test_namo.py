@@ -1,9 +1,10 @@
 import sys
 from planners.mcts import MCTS
-from planners.voronoi_mcts import VoronoiMCTS
 from generators.PlaceUniform import PlaceUnif
-from generators.PickUniform import NAMOPickUnif
+from generators.PickUniform import PickWithBaseUnif
+
 from namo.NAMO_env import NAMO
+
 
 import argparse
 import cPickle as pickle
@@ -44,14 +45,21 @@ def main():
     if args.v:
         problem_env.env.SetViewer('qtcoin')
 
+    """
     pick_pi = NAMOPickUnif(problem_env, problem['env'].GetRobots()[0], problem['all_region'])
     place_pi = PlaceUnif(problem['env'], problem['env'].GetRobots()[0], problem['all_region'],
                          problem['all_region'])
+    """
+
+    pick_pi = PickWithBaseUnif(problem_env)
+    place_pi = PlaceUnif(problem_env)
+
+    # todo where do I get the task plan?
+    import pdb;pdb.set_trace()
     if args.planner == 'mcts':
         mcts = MCTS(widening_parameter, uct_parameter, pick_pi, place_pi,  sampling_strategy, problem_env)
     else:
         mcts = VoronoiMCTS(pick_pi, place_pi, 'voo', problem_env)
-    import pdb;pdb.set_trace()
 
     search_time_to_reward, plan = mcts.search()
 
